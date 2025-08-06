@@ -1,6 +1,19 @@
 # This Terraform configuration provisions an Azure Virtual Machine with intentional security flaws
 # for demonstration purposes in a Cortex Cloud security scanning lab.
 
+# Define a variable for the user's username
+# This will be used to prefix resource names for easier identification and cleanup.
+variable "username" {
+  description = "Your GitHub username or a unique identifier to prefix resources. Please update this in terraform.tfvars."
+  type        = string
+  default     = "YOUR_GITHUB_USERNAME_PLACEHOLDER" # Changed default to a clear placeholder
+
+  validation {
+    condition     = var.username != "YOUR_GITHUB_USERNAME_PLACEHOLDER"
+    error_message = "The 'username' variable must be updated in terraform/terraform.tfvars with your unique GitHub username or identifier. Please replace 'YOUR_GITHUB_USERNAME_PLACEHOLDER'."
+  }
+}
+
 # Configure the Azure provider
 # We are intentionally not specifying a version constraint for the provider,
 # which can lead to unexpected behavior with future provider updates.
@@ -22,12 +35,14 @@ provider "azurerm" {
 # This NSG allows inbound SSH (port 22) and RDP (port 3389) from *any* IP address (0.0.0.0/0).
 # This is a critical security flaw, making the VM vulnerable to brute-force attacks.
 resource "azurerm_resource_group" "vulnerable_rg" {
-  name     = "vulnerable-terraform-rg"
+  # Resource group name now includes the username variable
+  name     = "${var.username}-vulnerable-terraform-rg"
   location = "East US"
 }
 
 resource "azurerm_network_security_group" "vulnerable_nsg" {
-  name                = "vulnerable-nsg"
+  # NSG name now includes the username variable
+  name                = "${var.username}-vulnerable-nsg"
   location            = azurerm_resource_group.vulnerable_rg.location
   resource_group_name = azurerm_resource_group.vulnerable_rg.name
 
@@ -60,14 +75,16 @@ resource "azurerm_network_security_group" "vulnerable_nsg" {
 
 # 2. Virtual Network and Subnet
 resource "azurerm_virtual_network" "vulnerable_vnet" {
-  name                = "vulnerable-vnet"
+  # VNet name now includes the username variable
+  name                = "${var.username}-vulnerable-vnet"
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.vulnerable_rg.location
   resource_group_name = azurerm_resource_group.vulnerable_rg.name
 }
 
 resource "azurerm_subnet" "vulnerable_subnet" {
-  name                 = "vulnerable-subnet"
+  # Subnet name now includes the username variable
+  name                 = "${var.username}-vulnerable-subnet"
   resource_group_name  = azurerm_resource_group.vulnerable_rg.name
   virtual_network_name = azurerm_virtual_network.vulnerable_vnet.name
   address_prefixes     = ["10.0.1.0/24"]
@@ -77,7 +94,8 @@ resource "azurerm_subnet" "vulnerable_subnet" {
 # Attaching a public IP directly to a VM is generally discouraged for production environments
 # unless absolutely necessary, as it exposes the VM directly to the internet.
 resource "azurerm_public_ip" "vulnerable_public_ip" {
-  name                = "vulnerable-public-ip"
+  # Public IP name now includes the username variable
+  name                = "${var.username}-vulnerable-public-ip"
   location            = azurerm_resource_group.vulnerable_rg.location
   resource_group_name = azurerm_resource_group.vulnerable_rg.name
   allocation_method   = "Dynamic" # Dynamic IP can change, but still exposes.
@@ -85,7 +103,8 @@ resource "azurerm_public_ip" "vulnerable_public_ip" {
 
 # 4. Network Interface with Insecure NSG Association
 resource "azurerm_network_interface" "vulnerable_nic" {
-  name                = "vulnerable-nic"
+  # NIC name now includes the username variable
+  name                = "${var.username}-vulnerable-nic"
   location            = azurerm_resource_group.vulnerable_rg.location
   resource_group_name = azurerm_resource_group.vulnerable_rg.name
 
@@ -102,7 +121,8 @@ resource "azurerm_network_interface" "vulnerable_nic" {
 
 # 5. Virtual Machine with Weak Authentication and Unencrypted OS Disk
 resource "azurerm_linux_virtual_machine" "vulnerable_vm" {
-  name                = "vulnerable-linux-vm"
+  # VM name now includes the username variable
+  name                = "${var.username}-vulnerable-linux-vm"
   resource_group_name = azurerm_resource_group.vulnerable_rg.name
   location            = azurerm_resource_group.vulnerable_rg.location
   size                = "Standard_B1s" # Small size for lab purposes
@@ -131,7 +151,7 @@ resource "azurerm_linux_virtual_machine" "vulnerable_vm" {
     version   = "latest"
   }
 
-  computer_name = "vulnerablevm"
+  computer_name = "${var.username}-vulnerablevm" # Computer name also includes the username
   # No boot diagnostics configured, making troubleshooting harder and potentially hiding issues.
 }
 
@@ -140,7 +160,8 @@ resource "azurerm_linux_virtual_machine" "vulnerable_vm" {
 # This storage account is configured for public access, which is a major security risk.
 /*
 resource "azurerm_storage_account" "vulnerable_storage" {
-  name                     = "vulnerablestorageacc001" # Must be globally unique
+  # Storage account name now includes the username variable
+  name                     = "${var.username}vulnerablestorageacc001" # Must be globally unique and lowercase
   resource_group_name      = azurerm_resource_group.vulnerable_rg.name
   location                 = azurerm_resource_group.vulnerable_rg.location
   account_tier             = "Standard"
